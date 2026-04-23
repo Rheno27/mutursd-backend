@@ -1,0 +1,11 @@
+src/endpoints/indikator-mutu/mutu.service.ts(773,35): error TS2379: Argument of type '{ where: Prisma.IndikatorMutuWhereInput | undefined; }' is not assignable to parameter of type 'Subset<IndikatorMutuCountArgs<DefaultArgs>, IndikatorMutuCountArgs<DefaultArgs>>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'where' are incompatible.
+    Type 'IndikatorMutuWhereInput | undefined' is not assignable to type 'IndikatorMutuWhereInput'.
+      Type 'undefined' is not assignable to type 'IndikatorMutuWhereInput'.
+src/endpoints/indikator-mutu/mutu.service.ts(774,38): error TS2379: Argument of type '{ where: Prisma.IndikatorMutuWhereInput | undefined; include: { kategori: true; indikatorRuangan: { where: { active: true; }; select: { idIndikatorRuangan: true; }; }; }; orderBy: ({ kategori: { ...; }; } | { ...; })[]; skip: number; take: number; }' is not assignable to parameter of type '{ select?: IndikatorMutuSelect<DefaultArgs> | null; omit?: IndikatorMutuOmit<DefaultArgs> | null; include?: IndikatorMutuInclude<...> | null; ... 5 more ...; distinct?: IndikatorMutuScalarFieldEnum | IndikatorMutuScalarFieldEnum[]; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'where' are incompatible.
+    Type 'IndikatorMutuWhereInput | undefined' is not assignable to type 'IndikatorMutuWhereInput'.
+      Type 'undefined' is not assignable to type 'IndikatorMutuWhereInput'.
+src/endpoints/indikator-mutu/mutu.service.ts(800,28): error TS2551: Property 'kategori' does not exist on type '{ idIndikator: number; idKategori: number; variabel: string; standar: string; }'. Did you mean 'idKategori'?
+src/endpoints/indikator-mutu/mutu.service.ts(801,26): error TS2551: Property 'kategori' does not exist on type '{ idIndikator: number; idKategori: number; variabel: string; standar: string; }'. Did you mean 'idKategori'?
+src/endpoints/indikator-mutu/mutu.service.ts(803,32): error TS2339: Property 'indikatorRuangan' does not exist on type '{ idIndikator: number; idKategori: number; variabel: string; standar: string; }'.
