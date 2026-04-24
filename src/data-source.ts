@@ -6,7 +6,7 @@ const baseDir = __dirname.replace(/\\/g, '/');
 const entityGlobs = [`${baseDir}/entities/*.entity.ts`, `${baseDir}/entities/*.entity.js`];
 
 export const AppDataSource = new DataSource({
-  type: 'mysql',
+  type: 'postgres',
   host: env.DB_HOST,
   port: env.DB_PORT,
   username: env.DB_USERNAME,
@@ -17,10 +17,9 @@ export const AppDataSource = new DataSource({
   subscribers: [],
   synchronize: false,
   logging: env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  charset: 'utf8mb4',
-  connectTimeout: 10000,
   extra: {
-    connectionLimit: 10
+    max: 10,
+    connectionTimeoutMillis: 10000,
   }
 });
 

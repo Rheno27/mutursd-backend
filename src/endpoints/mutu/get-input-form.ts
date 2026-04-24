@@ -1,8 +1,8 @@
-import { NextFunction, Request, Response } from 'express';
-import { AppDataSource } from '../../data-source';
-import { UnauthorizedError, BadRequestError } from '../../errors';
-import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
-import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
+import { NextFunction, Request, Response } from "express";
+import { AppDataSource } from "../../data-source";
+import { UnauthorizedError, BadRequestError } from "../../errors";
+import { IndikatorRuanganEntity } from "../../entities/indikator-ruangan.entity";
+import { MutuRuanganEntity } from "../../entities/mutu-ruangan.entity";
 
 type RawIndicatorRow = {
   idIndikatorRuangan?: string | number | null;
@@ -35,7 +35,7 @@ type InputMutuItem = {
 };
 
 function toStringValue(value: unknown): string {
-  return value === null || value === undefined ? '' : String(value);
+  return value === null || value === undefined ? "" : String(value);
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -44,7 +44,7 @@ function toNumber(value: unknown, fallback = 0): number {
 }
 
 function pad(value: number): string {
-  return String(value).padStart(2, '0');
+  return String(value).padStart(2, "0");
 }
 
 function formatDateOnly(date: Date): string {
@@ -53,18 +53,18 @@ function formatDateOnly(date: Date): string {
 
 function resolveTanggal(queryValue: unknown): string {
   const raw = Array.isArray(queryValue) ? queryValue[0] : queryValue;
-  if (raw === undefined || raw === null || String(raw).trim() === '') {
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
     return formatDateOnly(new Date());
   }
 
   const tanggal = String(raw).trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-    throw new BadRequestError('Format tanggal harus YYYY-MM-DD');
+    throw new BadRequestError("Format tanggal harus YYYY-MM-DD");
   }
 
   const parsed = new Date(`${tanggal}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {
-    throw new BadRequestError('Format tanggal tidak valid');
+    throw new BadRequestError("Format tanggal tidak valid");
   }
 
   return tanggal;
@@ -77,7 +77,7 @@ function formatDbDate(value: unknown): string {
 
   const raw = toStringValue(value);
   if (raw.length === 0) {
-    return '';
+    return "";
   }
 
   const parsed = new Date(raw);
@@ -93,32 +93,39 @@ function formatDbDate(value: unknown): string {
   return raw;
 }
 
-export async function getMutuInputFormHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getMutuInputFormHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const authUser = req.authUser;
     if (!authUser) {
-      throw new UnauthorizedError('Authentication is required');
+      throw new UnauthorizedError("Authentication is required");
     }
 
     const tanggal = resolveTanggal(req.query.tanggal);
     const idRuangan = toStringValue(authUser.idRuangan);
 
-    const indikatorRuanganRepository = AppDataSource.getRepository(IndikatorRuanganEntity);
-    const mutuRuanganRepository = AppDataSource.getRepository(MutuRuanganEntity);
+    const indikatorRuanganRepository = AppDataSource.getRepository(
+      IndikatorRuanganEntity,
+    );
+    const mutuRuanganRepository =
+      AppDataSource.getRepository(MutuRuanganEntity);
 
     const indikatorRows = (await indikatorRuanganRepository
-      .createQueryBuilder('ir')
-      .innerJoin('ir.indikatorMutu', 'im')
+      .createQueryBuilder("ir")
+      .innerJoin("ir.indikatorMutu", "im")
       .select([
-        'ir.id_indikator_ruangan AS idIndikatorRuangan',
-        'ir.id_indikator AS idIndikator',
-        'im.variabel AS variabel',
-        'im.standar AS standar',
+        'ir.id_indikator_ruangan AS "idIndikatorRuangan"',
+        'ir.id_indikator AS "idIndikator"',
+        "im.variabel AS variabel",
+        "im.standar AS standar",
       ])
-      .where('ir.id_ruangan = :idRuangan', { idRuangan })
-      .andWhere('ir.active = 1')
-      .orderBy('im.id_kategori', 'ASC')
-      .addOrderBy('im.variabel', 'ASC')
+      .where("ir.id_ruangan = :idRuangan", { idRuangan })
+      .andWhere("ir.active = true")
+      .orderBy("im.id_kategori", "ASC")
+      .addOrderBy("im.variabel", "ASC")
       .getRawMany()) as RawIndicatorRow[];
 
     const indikator: InputIndicatorItem[] = indikatorRows.map((row) => ({
@@ -132,25 +139,31 @@ export async function getMutuInputFormHandler(req: Request, res: Response, next:
       .map((item) => item.idIndikatorRuangan)
       .filter((value) => Number.isFinite(value));
 
-    const mutuRows = indicatorRoomIds.length === 0
-      ? []
-      : ((await mutuRuanganRepository
-          .createQueryBuilder('mr')
-          .select([
-            'mr.id_mutu AS idMutu',
-            'mr.tanggal AS tanggal',
-            'mr.total_pasien AS totalPasien',
-            'mr.pasien_sesuai AS pasienSesuai',
-            'mr.id_indikator_ruangan AS idIndikatorRuangan',
-          ])
-          .where('mr.tanggal = :tanggal', { tanggal })
-          .andWhere('mr.id_indikator_ruangan IN (:...indicatorRoomIds)', { indicatorRoomIds })
-          .getRawMany()) as RawMutuRow[]);
+    const mutuRows =
+      indicatorRoomIds.length === 0
+        ? []
+        : ((await mutuRuanganRepository
+            .createQueryBuilder("mr")
+            .select([
+              'mr.id_mutu AS "idMutu"',
+              "mr.tanggal AS tanggal",
+              'mr.total_pasien AS "totalPasien"',
+              'mr.pasien_sesuai AS "pasienSesuai"',
+              'mr.id_indikator_ruangan AS "idIndikatorRuangan"',
+            ])
+            // PostgreSQL: cast date to compare with text param
+            .where("mr.tanggal::date = :tanggal", { tanggal })
+            .andWhere("mr.id_indikator_ruangan IN (:...indicatorRoomIds)", {
+              indicatorRoomIds,
+            })
+            .getRawMany()) as RawMutuRow[]);
 
     const mutu: Record<string, InputMutuItem> = {};
     for (const row of mutuRows) {
       const idIndikatorRuangan = toNumber(row.idIndikatorRuangan);
-      const indikatorItem = indikator.find((item) => item.idIndikatorRuangan === idIndikatorRuangan);
+      const indikatorItem = indikator.find(
+        (item) => item.idIndikatorRuangan === idIndikatorRuangan,
+      );
       if (!indikatorItem) {
         continue;
       }

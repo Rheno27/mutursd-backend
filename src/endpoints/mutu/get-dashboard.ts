@@ -1,13 +1,13 @@
-import { NextFunction, Request, Response } from 'express';
-import { AppDataSource } from '../../data-source';
-import { UnauthorizedError } from '../../errors';
-import { calculateDailyStats } from '../../function/calculate-daily-stats';
-import { calculateSkmDailyStats } from '../../function/calculate-skm';
-import { SKM_LABEL } from '../../constant';
-import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
-import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
-import { JawabanEntity } from '../../entities/jawaban.entity';
-import { PilihanJawabanEntity } from '../../entities/pilihan-jawaban.entity';
+import { NextFunction, Request, Response } from "express";
+import { AppDataSource } from "../../data-source";
+import { UnauthorizedError } from "../../errors";
+import { calculateDailyStats } from "../../function/calculate-daily-stats";
+import { calculateSkmDailyStats } from "../../function/calculate-skm";
+import { SKM_LABEL } from "../../constant";
+import { IndikatorRuanganEntity } from "../../entities/indikator-ruangan.entity";
+import { MutuRuanganEntity } from "../../entities/mutu-ruangan.entity";
+import { JawabanEntity } from "../../entities/jawaban.entity";
+import { PilihanJawabanEntity } from "../../entities/pilihan-jawaban.entity";
 
 type RawIndicatorRoomRow = {
   idIndikatorRuangan?: string | number | null;
@@ -36,7 +36,7 @@ type RawSkmMaxScoreRow = {
 };
 
 function toStringValue(value: unknown): string {
-  return value === null || value === undefined ? '' : String(value);
+  return value === null || value === undefined ? "" : String(value);
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -47,7 +47,9 @@ function toNumber(value: unknown, fallback = 0): number {
 function resolveMonth(queryValue: unknown, fallback: number): number {
   const raw = Array.isArray(queryValue) ? queryValue[0] : queryValue;
   const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12 ? parsed : fallback;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 12
+    ? parsed
+    : fallback;
 }
 
 function resolveYear(queryValue: unknown, fallback: number): number {
@@ -60,11 +62,15 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
-export async function getMutuDashboardHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getMutuDashboardHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const authUser = req.authUser;
     if (!authUser) {
-      throw new UnauthorizedError('Authentication is required');
+      throw new UnauthorizedError("Authentication is required");
     }
 
     const now = new Date();
@@ -73,76 +79,85 @@ export async function getMutuDashboardHandler(req: Request, res: Response, next:
     const jumlahHari = getDaysInMonth(tahun, bulan);
     const idRuangan = toStringValue(authUser.idRuangan);
 
-    const indikatorRuanganRepository = AppDataSource.getRepository(IndikatorRuanganEntity);
-    const mutuRuanganRepository = AppDataSource.getRepository(MutuRuanganEntity);
+    const indikatorRuanganRepository = AppDataSource.getRepository(
+      IndikatorRuanganEntity,
+    );
+    const mutuRuanganRepository =
+      AppDataSource.getRepository(MutuRuanganEntity);
     const jawabanRepository = AppDataSource.getRepository(JawabanEntity);
-    const pilihanJawabanRepository = AppDataSource.getRepository(PilihanJawabanEntity);
+    const pilihanJawabanRepository =
+      AppDataSource.getRepository(PilihanJawabanEntity);
 
     const indikatorRows = (await indikatorRuanganRepository
-      .createQueryBuilder('ir')
-      .innerJoin('indikator_mutu', 'im', 'im.id_indikator = ir.id_indikator')
+      .createQueryBuilder("ir")
+      .innerJoin("indikator_mutu", "im", "im.id_indikator = ir.id_indikator")
       .select([
-        'ir.id_indikator_ruangan AS idIndikatorRuangan',
-        'ir.id_ruangan AS idRuangan',
-        'ir.id_indikator AS idIndikator',
-        'im.variabel AS variabel',
-        'im.standar AS standar',
+        'ir.id_indikator_ruangan AS "idIndikatorRuangan"',
+        'ir.id_ruangan AS "idRuangan"',
+        'ir.id_indikator AS "idIndikator"',
+        "im.variabel AS variabel",
+        "im.standar AS standar",
       ])
-      .where('ir.id_ruangan = :idRuangan', { idRuangan })
-      .andWhere('ir.active = 1')
-      .orderBy('im.id_kategori', 'ASC')
-      .addOrderBy('im.variabel', 'ASC')
+      .where("ir.id_ruangan = :idRuangan", { idRuangan })
+      .andWhere("ir.active = true")
+      .orderBy("im.id_kategori", "ASC")
+      .addOrderBy("im.variabel", "ASC")
       .getRawMany()) as RawIndicatorRoomRow[];
 
     const indicatorRoomIds = indikatorRows
       .map((row) => toStringValue(row.idIndikatorRuangan))
       .filter((value) => value.length > 0);
 
-    const mutuRows = indicatorRoomIds.length === 0
-      ? []
-      : ((await mutuRuanganRepository
-          .createQueryBuilder('mr')
-          .select([
-            'mr.id_indikator_ruangan AS idIndikatorRuangan',
-            'mr.tanggal AS tanggal',
-            'mr.pasien_sesuai AS pasienSesuai',
-            'mr.total_pasien AS totalPasien',
-          ])
-          .where('mr.id_indikator_ruangan IN (:...indicatorRoomIds)', { indicatorRoomIds })
-          .andWhere('MONTH(mr.tanggal) = :bulan', { bulan })
-          .andWhere('YEAR(mr.tanggal) = :tahun', { tahun })
-          .orderBy('mr.tanggal', 'ASC')
-          .addOrderBy('mr.id_indikator_ruangan', 'ASC')
-          .getRawMany()) as RawMutuRoomRow[]);
+    const mutuRows =
+      indicatorRoomIds.length === 0
+        ? []
+        : ((await mutuRuanganRepository
+            .createQueryBuilder("mr")
+            .select([
+              'mr.id_indikator_ruangan AS "idIndikatorRuangan"',
+              "mr.tanggal AS tanggal",
+              'mr.pasien_sesuai AS "pasienSesuai"',
+              'mr.total_pasien AS "totalPasien"',
+            ])
+            .where("mr.id_indikator_ruangan IN (:...indicatorRoomIds)", {
+              indicatorRoomIds,
+            })
+            // PostgreSQL: use EXTRACT instead of MONTH()/YEAR()
+            .andWhere("EXTRACT(MONTH FROM mr.tanggal) = :bulan", { bulan })
+            .andWhere("EXTRACT(YEAR FROM mr.tanggal) = :tahun", { tahun })
+            .orderBy("mr.tanggal", "ASC")
+            .addOrderBy("mr.id_indikator_ruangan", "ASC")
+            .getRawMany()) as RawMutuRoomRow[]);
 
     const indikatorData = calculateDailyStats(
       indikatorRows as unknown as Parameters<typeof calculateDailyStats>[0],
       mutuRows as unknown as Parameters<typeof calculateDailyStats>[1],
     );
 
-    const jawabanRows = ((await jawabanRepository
-      .createQueryBuilder('j')
-      .innerJoin('bio_pasien', 'bp', 'bp.id_pasien = j.id_pasien')
+    const jawabanRows = (await jawabanRepository
+      .createQueryBuilder("j")
+      .innerJoin("bio_pasien", "bp", "bp.id_pasien = j.id_pasien")
       .select([
-        'j.id_pertanyaan AS idPertanyaan',
-        'j.tanggal AS tanggal',
-        'j.hasil_nilai AS hasilNilai',
+        'j.id_pertanyaan AS "idPertanyaan"',
+        "j.tanggal AS tanggal",
+        'j.hasil_nilai AS "hasilNilai"',
       ])
-      .where('bp.id_ruangan = :idRuangan', { idRuangan })
-      .andWhere('MONTH(j.tanggal) = :bulan', { bulan })
-      .andWhere('YEAR(j.tanggal) = :tahun', { tahun })
-      .andWhere('j.id_pilihan IS NOT NULL')
-      .orderBy('j.tanggal', 'ASC')
-      .getRawMany()) as RawSkmAnswerRow[]);
+      .where("bp.id_ruangan = :idRuangan", { idRuangan })
+      // PostgreSQL: use EXTRACT instead of MONTH()/YEAR()
+      .andWhere("EXTRACT(MONTH FROM j.tanggal) = :bulan", { bulan })
+      .andWhere("EXTRACT(YEAR FROM j.tanggal) = :tahun", { tahun })
+      .andWhere("j.id_pilihan IS NOT NULL")
+      .orderBy("j.tanggal", "ASC")
+      .getRawMany()) as RawSkmAnswerRow[];
 
-    const maxScoreRows = ((await pilihanJawabanRepository
-      .createQueryBuilder('pj')
+    const maxScoreRows = (await pilihanJawabanRepository
+      .createQueryBuilder("pj")
       .select([
-        'pj.id_pertanyaan AS idPertanyaan',
-        'MAX(pj.nilai) AS maxScore',
+        'pj.id_pertanyaan AS "idPertanyaan"',
+        'MAX(pj.nilai) AS "maxScore"',
       ])
-      .groupBy('pj.id_pertanyaan')
-      .getRawMany()) as RawSkmMaxScoreRow[]);
+      .groupBy("pj.id_pertanyaan")
+      .getRawMany()) as RawSkmMaxScoreRow[];
 
     const maxScores: Record<number, number> = {};
     for (const row of maxScoreRows) {
@@ -167,7 +182,7 @@ export async function getMutuDashboardHandler(req: Request, res: Response, next:
 
     res.status(200).json({
       success: true,
-      message: 'Data dashboard berhasil diambil',
+      message: "Data dashboard berhasil diambil",
       data: {
         user: {
           idUser: authUser.idUser,

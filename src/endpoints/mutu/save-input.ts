@@ -173,13 +173,13 @@ export async function saveMutuInputHandler(
       .createQueryBuilder("ir")
       .innerJoin("ir.indikatorMutu", "im")
       .select([
-        "ir.id_indikator_ruangan AS idIndikatorRuangan",
-        "ir.id_indikator AS idIndikator",
+        'ir.id_indikator_ruangan AS "idIndikatorRuangan"',
+        'ir.id_indikator AS "idIndikator"',
       ])
       .where("ir.id_ruangan = :idRuangan", {
         idRuangan: String(authUser.idRuangan),
       })
-      .andWhere("ir.active = 1")
+      .andWhere("ir.active = true")
       .andWhere("ir.id_indikator IN (:...requestedIndicatorIds)", {
         requestedIndicatorIds,
       })
