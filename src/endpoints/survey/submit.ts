@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { AppDataSource } from '../../data-source';
-import { BadRequestError, NotFoundError } from '../../errors';
+import { BadRequestError, NotFoundError, ValidationError } from '../../errors';
 import { BioPasienEntity } from '../../entities/bio-pasien.entity';
 import { JawabanEntity } from '../../entities/jawaban.entity';
 import { PilihanJawabanEntity } from '../../entities/pilihan-jawaban.entity';
+import { RuanganEntity } from '../../entities/ruangan.entity';
 
 type SurveyAnswerPayload = {
   idPertanyaan: number | string;
@@ -17,6 +18,19 @@ function formatToday(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function normalizeText(value: unknown): string {
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export async function submitSurveyHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -39,8 +53,48 @@ export async function submitSurveyHandler(req: Request, res: Response, next: Nex
       jawaban?: SurveyAnswerPayload[];
     };
 
-    if (!Array.isArray(jawaban)) {
-      throw new BadRequestError('Format jawaban tidak valid');
+    const normalizedIdRuangan = normalizeText(idRuangan);
+    if (!normalizedIdRuangan) {
+      throw new BadRequestError('idRuangan wajib diisi');
+    }
+
+    const normalizedNoRm = normalizeText(noRm);
+    if (!normalizedNoRm) {
+      throw new ValidationError('noRm wajib diisi');
+    }
+
+    if (!/^\d+$/.test(normalizedNoRm)) {
+      throw new ValidationError('noRm harus berupa digit');
+    }
+
+    const parsedUmur = parsePositiveInteger(umur);
+    if (parsedUmur === null) {
+      throw new ValidationError('umur harus berupa integer positif');
+    }
+
+    const normalizedJenisKelamin = normalizeText(jenisKelamin);
+    if (!normalizedJenisKelamin) {
+      throw new ValidationError('jenisKelamin wajib diisi');
+    }
+
+    const normalizedPendidikan = normalizeText(pendidikan);
+    if (!normalizedPendidikan) {
+      throw new ValidationError('pendidikan wajib diisi');
+    }
+
+    const normalizedPekerjaan = normalizeText(pekerjaan);
+    if (!normalizedPekerjaan) {
+      throw new ValidationError('pekerjaan wajib diisi');
+    }
+
+    if (!Array.isArray(jawaban) || jawaban.length === 0) {
+      throw new BadRequestError('jawaban tidak boleh kosong');
+    }
+
+    const ruanganRepository = AppDataSource.getRepository(RuanganEntity);
+    const ruangan = await ruanganRepository.findOneBy({ idRuangan: normalizedIdRuangan });
+    if (!ruangan) {
+      throw new NotFoundError('Ruangan tidak ditemukan');
     }
 
     const tanggal = formatToday();
@@ -50,42 +104,40 @@ export async function submitSurveyHandler(req: Request, res: Response, next: Nex
       const jawabanRepository = manager.getRepository(JawabanEntity);
       const pilihanJawabanRepository = manager.getRepository(PilihanJawabanEntity);
 
-      const bioPasien = bioPasienRepository.create(
-        {
-          id_ruangan: String(idRuangan ?? ''),
-          no_rm: noRm ?? null,
-          umur: umur ?? null,
-          jenis_kelamin: jenisKelamin ?? null,
-          pendidikan: pendidikan ?? null,
-          pekerjaan: pekerjaan ?? null,
-        } as any,
-      );
+      const bioPasien = bioPasienRepository.create({
+        idRuangan: normalizedIdRuangan,
+        noRm: normalizedNoRm,
+        umur: parsedUmur,
+        jenisKelamin: normalizedJenisKelamin,
+        pendidikan: normalizedPendidikan,
+        pekerjaan: normalizedPekerjaan,
+      });
 
       const savedBioPasien = await bioPasienRepository.save(bioPasien);
-      const idPasien = String((savedBioPasien as any).id_pasien ?? (savedBioPasien as any).idPasien ?? '');
+      const idPasien = Number(savedBioPasien.idPasien);
 
-      if (!idPasien) {
+      if (!Number.isFinite(idPasien) || idPasien <= 0) {
         throw new BadRequestError('Gagal menyimpan data pasien');
       }
 
-      const jawabanTersimpan: any[] = [];
+      const jawabanTersimpan: JawabanEntity[] = [];
 
       for (const item of jawaban) {
-        const idPertanyaan = item?.idPertanyaan;
-        if (idPertanyaan === undefined || idPertanyaan === null || String(idPertanyaan).trim() === '') {
+        const idPertanyaan = Number(item?.idPertanyaan);
+        if (!Number.isFinite(idPertanyaan) || idPertanyaan <= 0) {
           throw new BadRequestError('idPertanyaan wajib diisi');
         }
 
         const hasPilihan = item?.idPilihan !== undefined && item?.idPilihan !== null && String(item?.idPilihan).trim() !== '';
 
-        let idPilihan: string | number | null = null;
-        let hasilNilai: string | number | null = null;
+        let idPilihan: number | null = null;
+        let hasilNilai: string = '';
 
         if (hasPilihan) {
           const pilihanJawaban = await pilihanJawabanRepository
             .createQueryBuilder('pilihan')
-            .where('CAST(pilihan.id_pilihan AS CHAR) = :idPilihan', {
-              idPilihan: String(item.idPilihan),
+            .where('pilihan.id_pilihan = :idPilihan', {
+              idPilihan: Number(item.idPilihan),
             })
             .getOne();
 
@@ -93,10 +145,10 @@ export async function submitSurveyHandler(req: Request, res: Response, next: Nex
             throw new NotFoundError('Pilihan jawaban tidak ditemukan');
           }
 
-          idPilihan = String((pilihanJawaban as any).id_pilihan ?? item.idPilihan);
-          hasilNilai = (pilihanJawaban as any).nilai;
+          idPilihan = pilihanJawaban.idPilihan;
+          hasilNilai = String(pilihanJawaban.nilai);
         } else {
-          const teks = item?.teks === undefined || item?.teks === null ? '' : String(item.teks).trim();
+          const teks = normalizeText(item?.teks);
           if (!teks) {
             throw new BadRequestError('Teks kritik/saran wajib diisi');
           }
@@ -104,15 +156,13 @@ export async function submitSurveyHandler(req: Request, res: Response, next: Nex
           hasilNilai = teks;
         }
 
-        const jawabanEntity = jawabanRepository.create(
-          {
-            id_pasien: idPasien,
-            id_pertanyaan: String(idPertanyaan),
-            id_pilihan: idPilihan,
-            tanggal,
-            hasil_nilai: hasilNilai,
-          } as any,
-        );
+        const jawabanEntity = jawabanRepository.create({
+          idPasien,
+          idPertanyaan,
+          idPilihan,
+          tanggal,
+          hasilNilai,
+        });
 
         const savedJawaban = await jawabanRepository.save(jawabanEntity);
         jawabanTersimpan.push(savedJawaban);

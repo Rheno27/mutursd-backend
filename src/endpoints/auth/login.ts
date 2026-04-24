@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { AppDataSource } from '../../data-source';
-import { ROLE, SUPERADMIN_ROOM_ID } from '../../constant';
+import { BCRYPT_SALT_ROUNDS, ROLE, SUPERADMIN_ROOM_ID } from '../../constant';
 import { NotFoundError, UnauthorizedError } from '../../errors';
 import { signAccessToken } from '../../jwt.util';
 import { UserEntity } from '../../entities/user.entity';
@@ -21,7 +21,19 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
       throw new NotFoundError('Username tidak ditemukan');
     }
 
-    const passwordMatch = await bcrypt.compare(String(password ?? ''), String(user.password ?? ''));
+    const passwordInput = String(password ?? '');
+    const storedPassword = String(user.password ?? '');
+    let passwordMatch = await bcrypt.compare(passwordInput, storedPassword);
+
+    if (!passwordMatch) {
+      const isPlaintextMatch = passwordInput === storedPassword;
+      if (isPlaintextMatch) {
+        const hashedPassword = await bcrypt.hash(passwordInput, BCRYPT_SALT_ROUNDS);
+        await userRepository.update({ idUser: user.idUser }, { password: hashedPassword });
+        passwordMatch = true;
+      }
+    }
+
     if (!passwordMatch) {
       throw new UnauthorizedError('Password salah');
     }

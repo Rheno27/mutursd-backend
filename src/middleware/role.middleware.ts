@@ -1,6 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { ForbiddenError, UnauthorizedError } from '../errors';
-import { PRIVILEGED_ROLES, ROLE, type Role } from '../constant';
+import { ROLE, type Role } from '../constant';
 
 export type AllowedRole = Role;
 
@@ -9,7 +9,7 @@ export function hasRoleAccess(userRole: Role | undefined, allowedRoles: readonly
     return false;
   }
 
-  if (PRIVILEGED_ROLES.includes(userRole)) {
+  if (userRole === ROLE.SUPERADMIN) {
     return true;
   }
 
@@ -39,5 +39,5 @@ export function roleMiddleware(...allowedRoles: AllowedRole[]): RequestHandler {
 }
 
 export function isPrivilegedRole(role: Role | undefined): boolean {
-  return role === ROLE.ADMIN || role === ROLE.SUPERADMIN;
+  return role === ROLE.SUPERADMIN;
 }

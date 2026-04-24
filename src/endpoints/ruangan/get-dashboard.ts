@@ -1,10 +1,14 @@
 import { NextFunction, Request, Response } from 'express';
 import { AppDataSource } from '../../data-source';
 import { NotFoundError } from '../../errors';
+import { SKM_LABEL } from '../../constant';
 import { RuanganEntity } from '../../entities/ruangan.entity';
 import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
 import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
+import { JawabanEntity } from '../../entities/jawaban.entity';
+import { PilihanJawabanEntity } from '../../entities/pilihan-jawaban.entity';
 import { calculateDailyStats } from '../../function/calculate-daily-stats';
+import { calculateSkmDailyStats, calculateSkmYearlyStats } from '../../function/calculate-skm';
 
 type RawRoom = {
   idRuangan?: string | number;
@@ -29,6 +33,17 @@ type RawMutuRuangan = {
   tanggal?: string | Date | null;
   pasienSesuai?: string | number | null;
   totalPasien?: string | number | null;
+};
+
+type RawSkmAnswerRow = {
+  idPertanyaan?: string | number;
+  tanggal?: string | Date | number | null;
+  hasilNilai?: string | number | null;
+};
+
+type RawSkmMaxScoreRow = {
+  idPertanyaan?: string | number;
+  maxScore?: string | number;
 };
 
 type DailyStatItem = {
@@ -147,22 +162,6 @@ function buildMonthlySeries(rows: RawMutuRuangan[], tahun: number): Array<number
     });
 }
 
-function buildSkmFallback(rows: RawMutuRuangan[]): { pasienSesuai: number; totalPasien: number; persentase: number | null } {
-  let pasienSesuai = 0;
-  let totalPasien = 0;
-
-  for (const row of rows) {
-    pasienSesuai += toNumber(row.pasienSesuai);
-    totalPasien += toNumber(row.totalPasien);
-  }
-
-  return {
-    pasienSesuai,
-    totalPasien,
-    persentase: calculatePercentage(pasienSesuai, totalPasien),
-  };
-}
-
 function sortRawIndicatorsByKategori(rows: RawIndicatorRoom[]): RawIndicatorRoom[] {
   const getPriority = (kategori?: string | null): number => {
     const value = normalizeString(kategori).toLowerCase();
@@ -207,6 +206,8 @@ export async function getRuanganDashboardHandler(req: Request, res: Response, ne
     const ruanganRepo = AppDataSource.getRepository(RuanganEntity);
     const indikatorRuanganRepo = AppDataSource.getRepository(IndikatorRuanganEntity);
     const mutuRuanganRepo = AppDataSource.getRepository(MutuRuanganEntity);
+    const jawabanRepo = AppDataSource.getRepository(JawabanEntity);
+    const pilihanJawabanRepo = AppDataSource.getRepository(PilihanJawabanEntity);
 
     const ruangan = (await ruanganRepo
       .createQueryBuilder('r')
@@ -307,26 +308,77 @@ export async function getRuanganDashboardHandler(req: Request, res: Response, ne
       };
     });
 
-    const skmMonthlyRows = monthlyRows;
-    const skmAnnualRows = annualRows;
+    const skmMonthlyRows = (await jawabanRepo
+      .createQueryBuilder('j')
+      .innerJoin('bio_pasien', 'bp', 'bp.id_pasien = j.id_pasien')
+      .select([
+        'j.id_pertanyaan AS idPertanyaan',
+        'j.tanggal AS tanggal',
+        'j.hasil_nilai AS hasilNilai',
+      ])
+      .where('bp.id_ruangan = :idRuangan', { idRuangan })
+      .andWhere('MONTH(j.tanggal) = :bulan', { bulan })
+      .andWhere('YEAR(j.tanggal) = :tahun', { tahun })
+      .andWhere('j.id_pilihan IS NOT NULL')
+      .orderBy('j.tanggal', 'ASC')
+      .getRawMany()) as RawSkmAnswerRow[];
 
-    const skmSummary = buildSkmFallback(skmMonthlyRows);
+    const skmAnnualRows = (await jawabanRepo
+      .createQueryBuilder('j')
+      .innerJoin('bio_pasien', 'bp', 'bp.id_pasien = j.id_pasien')
+      .select([
+        'j.id_pertanyaan AS idPertanyaan',
+        'j.tanggal AS tanggal',
+        'j.hasil_nilai AS hasilNilai',
+      ])
+      .where('bp.id_ruangan = :idRuangan', { idRuangan })
+      .andWhere('YEAR(j.tanggal) = :tahun', { tahun })
+      .andWhere('j.id_pilihan IS NOT NULL')
+      .orderBy('j.tanggal', 'ASC')
+      .getRawMany()) as RawSkmAnswerRow[];
 
-    const skmAnnualSeries = buildMonthlySeries(skmAnnualRows, tahun);
+    const maxScoreRows = (await pilihanJawabanRepo
+      .createQueryBuilder('pj')
+      .select([
+        'pj.id_pertanyaan AS idPertanyaan',
+        'MAX(pj.nilai) AS maxScore',
+      ])
+      .groupBy('pj.id_pertanyaan')
+      .getRawMany()) as RawSkmMaxScoreRow[];
+
+    const maxScores: Record<number, number> = {};
+    for (const row of maxScoreRows) {
+      const idPertanyaan = Number(row.idPertanyaan);
+      const maxScore = Number(row.maxScore);
+      if (Number.isFinite(idPertanyaan)) {
+        maxScores[idPertanyaan] = Number.isFinite(maxScore) ? maxScore : 0;
+      }
+    }
+
+    const skmDailyStats = calculateSkmDailyStats(skmMonthlyRows, maxScores, {
+      no: sortedActiveIndicators.length + 1,
+      label: SKM_LABEL,
+    });
+
+    const skmYearlyStats = calculateSkmYearlyStats(skmAnnualRows, maxScores, {
+      label: SKM_LABEL,
+    });
 
     const skmRow = {
+      no: skmDailyStats.no,
+      variabel: SKM_LABEL,
       idIndikatorRuangan: 'SKM',
       idIndikator: 'SKM',
       idRuangan: normalizeString(ruangan.idRuangan),
       idKategori: null,
-      kategori: 'SKM',
-      variabel: 'SKM',
-      indikator: 'Survey Kepuasan Masyarakat',
-      pasienSesuai: skmSummary.pasienSesuai,
-      totalPasien: skmSummary.totalPasien,
-      persentase: skmSummary.persentase,
-      dailyStats: buildDailyFallback(skmMonthlyRows, jumlahHari),
-      monthlySeries: skmAnnualSeries,
+      kategori: SKM_LABEL,
+      indikator: SKM_LABEL,
+      pasienSesuai: skmDailyStats.jumlah_sesuai,
+      totalPasien: skmDailyStats.jumlah_total,
+      persentase: skmDailyStats.persen,
+      dailyStats: skmDailyStats,
+      monthlySeries: skmYearlyStats.data_bulan,
+      quarterlySeries: skmYearlyStats.data_tw,
     };
 
     const indikatorDataWithSkm = [...indikatorData, skmRow];

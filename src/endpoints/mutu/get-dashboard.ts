@@ -131,6 +131,7 @@ export async function getMutuDashboardHandler(req: Request, res: Response, next:
       .where('bp.id_ruangan = :idRuangan', { idRuangan })
       .andWhere('MONTH(j.tanggal) = :bulan', { bulan })
       .andWhere('YEAR(j.tanggal) = :tahun', { tahun })
+      .andWhere('j.id_pilihan IS NOT NULL')
       .orderBy('j.tanggal', 'ASC')
       .getRawMany()) as RawSkmAnswerRow[]);
 
