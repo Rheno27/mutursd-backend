@@ -1,7 +1,18 @@
-import dotenv from 'dotenv';
-import { AppError } from './errors';
+import path from "path";
+import dotenv from "dotenv";
+import { AppError } from "./errors";
 
-dotenv.config();
+const envPaths = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(__dirname, "..", ".env"),
+];
+
+for (const envPath of envPaths) {
+  dotenv.config({
+    path: envPath,
+    override: true,
+  });
+}
 
 export type RequiredEnvKey =
   | 'DB_HOST'
@@ -82,7 +93,7 @@ export const env: AppEnv = {
   DB_HOST: getEnv('DB_HOST'),
   DB_PORT: getRequiredNumberEnv('DB_PORT'),
   DB_USERNAME: getEnv('DB_USERNAME'),
-  DB_PASSWORD: getEnv('DB_PASSWORD'),
+  DB_PASSWORD: getEnv('DB_PASSWORD') || '',
   DB_NAME: getEnv('DB_NAME'),
   JWT_SECRET: getEnv('JWT_SECRET'),
   JWT_EXPIRES_IN: getEnv('JWT_EXPIRES_IN'),

@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response, RequestHandler } from "express";
 import { UnauthorizedError } from "../errors";
 import { toAuthUserContext, verifyAccessToken } from "../jwt.util";
+import type { AuthUserContext } from "../jwt.util";
+
+type AuthenticatedRequest = Request & {
+  authUser?: AuthUserContext;
+};
 
 function extractToken(req: Request): string | undefined {
   const authorization = req.headers.authorization;
@@ -38,7 +43,8 @@ export const authMiddleware: RequestHandler = (
     }
 
     const payload = verifyAccessToken(token);
-    req.authUser = toAuthUserContext(payload, token);
+    const authReq = req as AuthenticatedRequest;
+    authReq.authUser = toAuthUserContext(payload, token);
     next();
   } catch (error) {
     if (error instanceof UnauthorizedError) {

@@ -1,10 +1,8 @@
-import type { AuthUserContext } from '../jwt.util';
+import type { AuthUserContext } from "../jwt.util";
 
-declare global {
-  namespace Express {
-    interface Request {
-      authUser?: AuthUserContext;
-    }
+declare module "express-serve-static-core" {
+  interface Request {
+    authUser?: AuthUserContext;
   }
 }
 

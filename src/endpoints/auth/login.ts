@@ -23,7 +23,16 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
 
     const passwordInput = String(password ?? '');
     const storedPassword = String(user.password ?? '');
-    let passwordMatch = await bcrypt.compare(passwordInput, storedPassword);
+    const normalizedStoredPassword = storedPassword.startsWith('$2y$')
+      ? `$2b$${storedPassword.slice(4)}`
+      : storedPassword;
+
+    let passwordMatch = false;
+    try {
+      passwordMatch = await bcrypt.compare(passwordInput, normalizedStoredPassword);
+    } catch (_error) {
+      passwordMatch = false;
+    }
 
     if (!passwordMatch) {
       const isPlaintextMatch = passwordInput === storedPassword;
