@@ -140,35 +140,35 @@ app.get('/auth/me', authMiddleware, meHandler);
 app.get('/survey/form', getSurveyFormHandler);
 app.post('/survey/submit', submitSurveyHandler);
 
-app.get('/mutu/dashboard', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getMutuDashboardHandler);
+app.get('/mutu/dashboard', authMiddleware, roleMiddleware(ROLE.ADMIN), getMutuDashboardHandler);
 app.get('/mutu/input-form', authMiddleware, roleMiddleware(ROLE.ADMIN), getMutuInputFormHandler);
 app.post('/mutu/save-input', authMiddleware, roleMiddleware(ROLE.ADMIN), saveMutuInputHandler);
 app.get('/mutu/download-rekap', authMiddleware, roleMiddleware(ROLE.ADMIN), downloadMutuRekapHandler);
 
-app.get('/indikator', authMiddleware, roleMiddleware(ROLE.ADMIN), getIndikatorListHandler);
-app.post('/indikator', authMiddleware, roleMiddleware(ROLE.ADMIN), createIndikatorHandler);
-app.put('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.ADMIN), updateIndikatorHandler);
-app.delete('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.ADMIN), deleteIndikatorHandler);
+app.get('/indikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getIndikatorListHandler);
+app.post('/indikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), createIndikatorHandler);
+app.put('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), updateIndikatorHandler);
+app.delete('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), deleteIndikatorHandler);
 
-app.get('/dashboard', authMiddleware, getDashboardHandler);
+app.get('/dashboard', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getDashboardHandler);
 app.get('/superadmin/download-rekap-indikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRekapIndikatorHandler);
 
 app.get('/ruangan', getRuanganListHandler);
 app.get('/kategori', getKategoriListHandler);
 
-app.get('/ruangan/:id/dashboard', authMiddleware, roleMiddleware(ROLE.ADMIN), getRuanganDashboardHandler);
+app.get('/ruangan/:id/dashboard', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getRuanganDashboardHandler);
 app.get('/superadmin/ruangan/:id/download-rekap', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRuanganRekapHandler);
-app.get('/ruangan/:id/edit', authMiddleware, roleMiddleware(ROLE.ADMIN), getRuanganEditHandler);
-app.post('/ruangan/assign', authMiddleware, roleMiddleware(ROLE.ADMIN), assignRuanganHandler);
-app.patch('/ruangan/switch', authMiddleware, roleMiddleware(ROLE.ADMIN), switchRuanganHandler);
-app.patch('/ruangan/deactivate', authMiddleware, roleMiddleware(ROLE.ADMIN), deactivateRuanganHandler);
+app.get('/ruangan/:id/edit', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getRuanganEditHandler);
+app.post('/ruangan/assign', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), assignRuanganHandler);
+app.patch('/ruangan/switch', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), switchRuanganHandler);
+app.patch('/ruangan/deactivate', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), deactivateRuanganHandler);
 
-app.get('/skm/rekap', authMiddleware, roleMiddleware(ROLE.ADMIN), getSkmRekapHandler);
-app.get('/skm/hasil', authMiddleware, roleMiddleware(ROLE.ADMIN), getSkmHasilHandler);
-app.get('/skm/pertanyaan', authMiddleware, roleMiddleware(ROLE.ADMIN), getSkmPertanyaanHandler);
-app.post('/skm/sync-pertanyaan', authMiddleware, roleMiddleware(ROLE.ADMIN), syncSkmPertanyaanHandler);
-app.delete('/skm/pertanyaan/:idPertanyaan', authMiddleware, roleMiddleware(ROLE.ADMIN), deleteSkmPertanyaanHandler);
-app.get('/skm/download-rekap', authMiddleware, roleMiddleware(ROLE.ADMIN), downloadSkmRekapHandler);
+app.get('/skm/rekap', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getSkmRekapHandler);
+app.get('/skm/hasil', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getSkmHasilHandler);
+app.get('/skm/pertanyaan', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getSkmPertanyaanHandler);
+app.post('/skm/sync-pertanyaan', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), syncSkmPertanyaanHandler);
+app.delete('/skm/pertanyaan/:idPertanyaan', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), deleteSkmPertanyaanHandler);
+app.get('/skm/download-rekap', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadSkmRekapHandler);
 
 app.use((_req, _res, next) => {
   next(new NotFoundError('Route not found'));

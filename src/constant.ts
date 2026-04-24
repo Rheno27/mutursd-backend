@@ -2,6 +2,11 @@ export const APP_NAME = 'mutursd-backend';
 export const APP_DISPLAY_NAME = 'Mutu RSD Backend';
 export const APP_VERSION = '1.0.0';
 
+export const KATEGORI_NASIONAL = 'Indikator Nasional Mutu';
+export const KATEGORI_PRIORITAS_UNIT = 'Indikator Mutu Prioritas Unit';
+export const KATEGORI_PRIORITAS_RS = 'Indikator Prioritas RS';
+export const SKM_LABEL = 'Kepuasan Masyarakat';
+
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_LIMIT = 10;
 export const MAX_LIMIT = 100;

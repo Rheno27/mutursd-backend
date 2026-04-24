@@ -1,15 +1,15 @@
-import { NextFunction, Request, Response } from 'express';
-import { Between } from 'typeorm';
-import { AppDataSource } from '../../data-source';
-import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
-import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
-import { JawabanEntity } from '../../entities/jawaban.entity';
-import { PilihanJawabanEntity } from '../../entities/pilihan-jawaban.entity';
-import { RuanganEntity } from '../../entities/ruangan.entity';
-import { NotFoundError } from '../../errors';
-import { calculateDailyStats } from '../../function/calculate-daily-stats';
-import { calculateSkmDailyStats } from '../../function/calculate-skm';
-import { buildRekapMutuRuanganWorkbook } from '../../excel-export/rekap-mutu-ruangan';
+import { NextFunction, Request, Response } from "express";
+import { Between } from "typeorm";
+import { AppDataSource } from "../../data-source";
+import { IndikatorRuanganEntity } from "../../entities/indikator-ruangan.entity";
+import { MutuRuanganEntity } from "../../entities/mutu-ruangan.entity";
+import { JawabanEntity } from "../../entities/jawaban.entity";
+import { PilihanJawabanEntity } from "../../entities/pilihan-jawaban.entity";
+import { RuanganEntity } from "../../entities/ruangan.entity";
+import { NotFoundError } from "../../errors";
+import { calculateDailyStats } from "../../function/calculate-daily-stats";
+import { calculateSkmDailyStats } from "../../function/calculate-skm";
+import { buildRekapMutuRuanganWorkbook } from "../../excel-export/rekap-mutu-ruangan";
 
 type MutuDashboardRow = {
   no: number;
@@ -21,7 +21,7 @@ type MutuDashboardRow = {
 };
 
 function parseMonth(input: unknown, fallback: number): number {
-  const value = Number.parseInt(String(input ?? ''), 10);
+  const value = Number.parseInt(String(input ?? ""), 10);
   if (!Number.isFinite(value) || value < 1 || value > 12) {
     return fallback;
   }
@@ -29,7 +29,7 @@ function parseMonth(input: unknown, fallback: number): number {
 }
 
 function parseYear(input: unknown, fallback: number): number {
-  const value = Number.parseInt(String(input ?? ''), 10);
+  const value = Number.parseInt(String(input ?? ""), 10);
   if (!Number.isFinite(value) || value < 1900) {
     return fallback;
   }
@@ -38,38 +38,46 @@ function parseYear(input: unknown, fallback: number): number {
 
 function formatDateYmd(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-async function sendWorkbook(workbook: unknown, filename: string, res: Response): Promise<void> {
+async function sendWorkbook(
+  workbook: unknown,
+  filename: string,
+  res: Response,
+): Promise<void> {
   const anyWorkbook = workbook as any;
-  const contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  const contentType =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
-  if (typeof anyWorkbook?.writeToBuffer === 'function') {
+  if (typeof anyWorkbook?.writeToBuffer === "function") {
     const buffer = await anyWorkbook.writeToBuffer();
     res.send(buffer);
     return;
   }
 
-  if (typeof anyWorkbook?.write === 'function') {
+  if (typeof anyWorkbook?.write === "function") {
     await anyWorkbook.write(filename, res);
     return;
   }
 
-  throw new Error('Workbook output method is not available.');
+  throw new Error("Workbook output method is not available.");
 }
 
-export async function downloadRuanganRekapHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function downloadRuanganRekapHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
-    const idRuanganRaw = String(req.params.id ?? '').trim();
-    const idRuangan = Number.parseInt(idRuanganRaw, 10);
+    const idRuangan = String(req.params.id ?? "").trim();
 
-    if (!Number.isFinite(idRuangan)) {
-      throw new NotFoundError('Ruangan tidak ditemukan');
+    if (!idRuangan) {
+      throw new NotFoundError("Ruangan tidak ditemukan");
     }
 
     const now = new Date();
@@ -77,45 +85,57 @@ export async function downloadRuanganRekapHandler(req: Request, res: Response, n
     const tahun = parseYear(req.query.tahun, now.getFullYear());
     const jumlahHari = new Date(tahun, bulan, 0).getDate();
 
-    const indikatorRuanganRepo = AppDataSource.getRepository(IndikatorRuanganEntity);
+    const indikatorRuanganRepo = AppDataSource.getRepository(
+      IndikatorRuanganEntity,
+    );
     const mutuRuanganRepo = AppDataSource.getRepository(MutuRuanganEntity);
     const jawabanRepo = AppDataSource.getRepository(JawabanEntity);
-    const pilihanJawabanRepo = AppDataSource.getRepository(PilihanJawabanEntity);
+    const pilihanJawabanRepo =
+      AppDataSource.getRepository(PilihanJawabanEntity);
     const ruanganRepo = AppDataSource.getRepository(RuanganEntity);
 
     const ruangan = await ruanganRepo.findOneBy({ idRuangan });
     if (!ruangan) {
-      throw new NotFoundError('Ruangan tidak ditemukan');
+      throw new NotFoundError("Ruangan tidak ditemukan");
     }
 
     const activeIndicators = await indikatorRuanganRepo
-      .createQueryBuilder('ir')
-      .innerJoinAndSelect('ir.indikatorMutu', 'im')
-      .leftJoinAndSelect('im.kategori', 'k')
-      .where('ir.idRuangan = :idRuangan', { idRuangan })
-      .andWhere('ir.active = :active', { active: true })
-      .orderBy('im.variabel', 'ASC')
-      .addOrderBy('ir.idIndikatorRuangan', 'ASC')
+      .createQueryBuilder("ir")
+      .innerJoinAndSelect("ir.indikatorMutu", "im")
+      .leftJoinAndSelect("im.kategori", "k")
+      .where("ir.idRuangan = :idRuangan", { idRuangan })
+      .andWhere("ir.active = :active", { active: true })
+      .orderBy("im.variabel", "ASC")
+      .addOrderBy("ir.idIndikatorRuangan", "ASC")
       .getMany();
 
     const startDate = formatDateYmd(new Date(tahun, bulan - 1, 1));
     const endDate = formatDateYmd(new Date(tahun, bulan - 1, jumlahHari));
 
     const mutuRecords = await mutuRuanganRepo
-      .createQueryBuilder('mr')
-      .innerJoinAndSelect('mr.indikatorRuangan', 'ir')
-      .where('ir.idRuangan = :idRuangan', { idRuangan })
-      .andWhere('mr.tanggal BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .createQueryBuilder("mr")
+      .innerJoinAndSelect("mr.indikatorRuangan", "ir")
+      .where("ir.idRuangan = :idRuangan", { idRuangan })
+      .andWhere("mr.tanggal BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
       .getMany();
 
-    const indikatorData = calculateDailyStats(activeIndicators as any, mutuRecords as any) as MutuDashboardRow[];
+    const indikatorData = calculateDailyStats(
+      activeIndicators as any,
+      mutuRecords as any,
+    ) as MutuDashboardRow[];
 
     const maxScoreRows = await pilihanJawabanRepo
-      .createQueryBuilder('pj')
-      .select('pj.idPertanyaan', 'idPertanyaan')
-      .addSelect('MAX(pj.nilai)', 'maxNilai')
-      .groupBy('pj.idPertanyaan')
-      .getRawMany<{ idPertanyaan: string | number; maxNilai: string | number }>();
+      .createQueryBuilder("pj")
+      .select("pj.idPertanyaan", "idPertanyaan")
+      .addSelect("MAX(pj.nilai)", "maxNilai")
+      .groupBy("pj.idPertanyaan")
+      .getRawMany<{
+        idPertanyaan: string | number;
+        maxNilai: string | number;
+      }>();
 
     const maxScores: Record<number, number> = {};
     for (const row of maxScoreRows) {
@@ -127,38 +147,44 @@ export async function downloadRuanganRekapHandler(req: Request, res: Response, n
     }
 
     const answerRows = await jawabanRepo
-      .createQueryBuilder('j')
-      .innerJoin('j.bioPasien', 'bp')
-      .where('bp.idRuangan = :idRuangan', { idRuangan })
-      .andWhere('j.tanggal BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .andWhere('j.idPilihan IS NOT NULL')
-      .andWhere('j.hasilNilai IS NOT NULL')
+      .createQueryBuilder("j")
+      .innerJoin("j.bioPasien", "bp")
+      .where("bp.idRuangan = :idRuangan", { idRuangan })
+      .andWhere("j.tanggal BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .andWhere("j.idPilihan IS NOT NULL")
+      .andWhere("j.hasilNilai IS NOT NULL")
       .getMany();
 
     const skmRow: any = calculateSkmDailyStats(answerRows as any, maxScores, {
       bulan,
       tahun,
-      jumlahHari
+      jumlahHari,
     } as any);
 
     const normalizedSkmRow: MutuDashboardRow = {
       no: indikatorData.length + 1,
-      variabel: String(skmRow?.variabel ?? skmRow?.judul ?? 'SKM'),
-      byTanggal: (skmRow?.byTanggal ?? {}) as Record<string, { pasien_sesuai: number; total_pasien: number }>,
+      variabel: String(skmRow?.variabel ?? skmRow?.judul ?? "SKM"),
+      byTanggal: (skmRow?.byTanggal ?? {}) as Record<
+        string,
+        { pasien_sesuai: number; total_pasien: number }
+      >,
       jumlah_total: Number(skmRow?.jumlah_total ?? 0),
       jumlah_sesuai: Number(skmRow?.jumlah_sesuai ?? 0),
-      persen: typeof skmRow?.persen === 'number' ? skmRow.persen : null
+      persen: typeof skmRow?.persen === "number" ? skmRow.persen : null,
     };
 
     const workbook = buildRekapMutuRuanganWorkbook({
-      ruanganId: String(idRuangan),
+      ruanganId: idRuangan,
       namaRuangan: ruangan?.namaRuangan ?? String(idRuangan),
       bulan,
       tahun,
-      data: [...indikatorData, normalizedSkmRow]
+      data: [...indikatorData, normalizedSkmRow],
     });
 
-    const filename = `Rekap_Mutu_${String(ruangan?.namaRuangan ?? idRuangan).replace(/\s+/g, '_')}_${bulan}-${tahun}.xlsx`;
+    const filename = `Rekap_Mutu_${String(ruangan?.namaRuangan ?? idRuangan).replace(/\s+/g, "_")}_${bulan}-${tahun}.xlsx`;
     await sendWorkbook(workbook, filename, res);
   } catch (error) {
     next(error);

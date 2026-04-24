@@ -1,14 +1,14 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
 import { BioPasienEntity } from './bio-pasien.entity';
 import { IndikatorRuanganEntity } from './indikator-ruangan.entity';
 import { UserEntity } from './user.entity';
 
 @Entity({ name: 'ruangan' })
 export class RuanganEntity {
-  @PrimaryGeneratedColumn({ name: 'id_ruangan' })
-  idRuangan!: number;
+  @PrimaryColumn({ name: 'id_ruangan', type: 'varchar', length: 255 })
+  idRuangan!: string;
 
-  @Column({ name: 'nama_ruangan' })
+  @Column({ name: 'nama_ruangan', type: 'varchar', length: 100 })
   namaRuangan!: string;
 
   @OneToMany(() => IndikatorRuanganEntity, (indikatorRuangan) => indikatorRuangan.ruangan)

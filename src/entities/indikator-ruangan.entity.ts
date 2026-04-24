@@ -8,8 +8,8 @@ export class IndikatorRuanganEntity {
   @PrimaryGeneratedColumn({ name: 'id_indikator_ruangan' })
   idIndikatorRuangan!: number;
 
-  @Column({ name: 'id_ruangan' })
-  idRuangan!: number;
+  @Column({ name: 'id_ruangan', type: 'varchar', length: 255 })
+  idRuangan!: string;
 
   @Column({ name: 'id_indikator' })
   idIndikator!: number;
