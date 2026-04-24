@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import moment from 'moment';
 import { Between } from 'typeorm';
 import { AppDataSource } from '../../data-source';
-import { RuanganEntity } from '../../entities/ruangan.entity';
 import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
-import { IndikatorMutuEntity } from '../../entities/indikator-mutu.entity';
 import { KategoriEntity } from '../../entities/kategori.entity';
 import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
 import { JawabanEntity } from '../../entities/jawaban.entity';
@@ -12,7 +9,6 @@ import { PertanyaanEntity } from '../../entities/pertanyaan.entity';
 import { calculateMonthlyStats } from '../../function/calculate-monthly-stats';
 import { calculateTriwulanStats } from '../../function/calculate-triwulan';
 import { calculateSkmYearlyStats } from '../../function/calculate-skm';
-import { NotFoundError } from '../../errors';
 
 const CATEGORY_PRIORITY: Record<string, number> = {
   'Indikator Mutu Prioritas Unit': 1,
@@ -39,10 +35,26 @@ function pickNumber(...values: Array<unknown>): number {
   return 0;
 }
 
+function getMonthNumber(value: unknown): number {
+  const date = value instanceof Date ? value : new Date(String(value ?? ''));
+  if (Number.isNaN(date.getTime())) {
+    return 1;
+  }
+  return date.getMonth() + 1;
+}
+
+function startOfYear(year: number): Date {
+  return new Date(year, 0, 1, 0, 0, 0, 0);
+}
+
+function endOfYear(year: number): Date {
+  return new Date(year, 11, 31, 23, 59, 59, 999);
+}
+
 function buildMonthlyGroups(records: any[]): Record<number, any[] | undefined> {
   const grouped: Record<number, any[]> = {};
   records.forEach((record) => {
-    const month = Number(moment(record.tanggal).month() + 1);
+    const month = getMonthNumber(record.tanggal);
     if (!grouped[month]) {
       grouped[month] = [];
     }
@@ -89,13 +101,10 @@ function serializeIndicatorRow(indicator: any, monthly: Array<number | null>, tr
 
 async function loadMonthlyDataForAssignment(idIndikatorRuangan: string, year: number): Promise<any[]> {
   const repo = AppDataSource.getRepository(MutuRuanganEntity);
-  const start = moment({ year, month: 0, day: 1 }).startOf('day').toDate();
-  const end = moment({ year, month: 11, day: 31 }).endOf('day').toDate();
-
   return repo.find({
     where: {
       idIndikatorRuangan,
-      tanggal: Between(start, end)
+      tanggal: Between(startOfYear(year), endOfYear(year))
     } as any,
     order: {
       tanggal: 'ASC'
@@ -115,10 +124,7 @@ async function buildSkmYearlyRow(year: number, idRuangan?: string): Promise<{ da
 
   const answers = await answerRepo.find({
     where: {
-      tanggal: Between(
-        moment({ year, month: 0, day: 1 }).startOf('day').toDate(),
-        moment({ year, month: 11, day: 31 }).endOf('day').toDate()
-      )
+      tanggal: Between(startOfYear(year), endOfYear(year))
     } as any,
     relations: {
       bioPasien: {
@@ -145,19 +151,19 @@ async function buildSkmYearlyRow(year: number, idRuangan?: string): Promise<{ da
     year
   } as any);
 
+  const yearlyResult = yearly as any;
   return {
-    data_bulan: yearly?.data_bulan || yearly?.dataBulan || Array(12).fill(null),
-    data_tw: yearly?.data_tw || yearly?.dataTw || Array(4).fill(null)
+    data_bulan: yearlyResult?.data_bulan ?? yearlyResult?.dataBulan ?? Array(12).fill(null),
+    data_tw: yearlyResult?.data_tw ?? yearlyResult?.dataTw ?? Array(4).fill(null)
   };
 }
 
 export async function getDashboardHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const tahun = pickNumber(req.query?.tahun, moment().year()) || moment().year();
+    const tahun = pickNumber(req.query?.tahun, new Date().getFullYear()) || new Date().getFullYear();
     const kategoriName = String(req.query?.kategori || 'Indikator Nasional Mutu').trim() || 'Indikator Nasional Mutu';
 
     const kategoriRepo = AppDataSource.getRepository(KategoriEntity);
-    const ruanganRepo = AppDataSource.getRepository(RuanganEntity);
     const indikatorRuanganRepo = AppDataSource.getRepository(IndikatorRuanganEntity);
 
     const kategori = await kategoriRepo.findOne({
@@ -181,7 +187,6 @@ export async function getDashboardHandler(req: Request, res: Response, next: Nex
 
     if (kategoriName === 'Indikator Mutu Prioritas Unit') {
       const roomMap = new Map<string, { ruangan: any; indikator: any[]; indikatorData: any[] }>();
->>>>>>> REPLACE
 
       for (const assignment of filteredAssignments.sort(sortIndicators)) {
         const roomId = String(assignment.idRuangan || assignment?.ruangan?.idRuangan || '');
@@ -219,7 +224,7 @@ export async function getDashboardHandler(req: Request, res: Response, next: Nex
       return;
     }
 
-    const indicatorRows = [];
+    const indicatorRows: any[] = [];
     for (const assignment of filteredAssignments.sort(sortIndicators)) {
       const records = await loadMonthlyDataForAssignment(String(assignment.idIndikatorRuangan), tahun);
       const monthlyGroups = buildMonthlyGroups(records);

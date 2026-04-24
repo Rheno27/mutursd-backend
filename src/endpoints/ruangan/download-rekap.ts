@@ -1,15 +1,15 @@
 import { NextFunction, Request, Response } from 'express';
+import { Between } from 'typeorm';
 import { AppDataSource } from '../../data-source';
 import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
 import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
 import { JawabanEntity } from '../../entities/jawaban.entity';
 import { PilihanJawabanEntity } from '../../entities/pilihan-jawaban.entity';
 import { RuanganEntity } from '../../entities/ruangan.entity';
-import { AuthUserContext } from '../../jwt.util';
+import { NotFoundError } from '../../errors';
 import { calculateDailyStats } from '../../function/calculate-daily-stats';
 import { calculateSkmDailyStats } from '../../function/calculate-skm';
 import { buildRekapMutuRuanganWorkbook } from '../../excel-export/rekap-mutu-ruangan';
-import { UnauthorizedError } from '../../errors';
 
 type MutuDashboardRow = {
   no: number;
@@ -63,11 +63,13 @@ async function sendWorkbook(workbook: unknown, filename: string, res: Response):
   throw new Error('Workbook output method is not available.');
 }
 
-export async function downloadMutuRekapHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function downloadRuanganRekapHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authUser = req.authUser as AuthUserContext | undefined;
-    if (!authUser?.idRuangan) {
-      throw new UnauthorizedError('Unauthorized');
+    const idRuanganRaw = String(req.params.id ?? '').trim();
+    const idRuangan = Number.parseInt(idRuanganRaw, 10);
+
+    if (!Number.isFinite(idRuangan)) {
+      throw new NotFoundError('Ruangan tidak ditemukan');
     }
 
     const now = new Date();
@@ -81,11 +83,16 @@ export async function downloadMutuRekapHandler(req: Request, res: Response, next
     const pilihanJawabanRepo = AppDataSource.getRepository(PilihanJawabanEntity);
     const ruanganRepo = AppDataSource.getRepository(RuanganEntity);
 
+    const ruangan = await ruanganRepo.findOneBy({ idRuangan });
+    if (!ruangan) {
+      throw new NotFoundError('Ruangan tidak ditemukan');
+    }
+
     const activeIndicators = await indikatorRuanganRepo
       .createQueryBuilder('ir')
       .innerJoinAndSelect('ir.indikatorMutu', 'im')
       .leftJoinAndSelect('im.kategori', 'k')
-      .where('ir.idRuangan = :idRuangan', { idRuangan: authUser.idRuangan })
+      .where('ir.idRuangan = :idRuangan', { idRuangan })
       .andWhere('ir.active = :active', { active: true })
       .orderBy('im.variabel', 'ASC')
       .addOrderBy('ir.idIndikatorRuangan', 'ASC')
@@ -97,7 +104,7 @@ export async function downloadMutuRekapHandler(req: Request, res: Response, next
     const mutuRecords = await mutuRuanganRepo
       .createQueryBuilder('mr')
       .innerJoinAndSelect('mr.indikatorRuangan', 'ir')
-      .where('ir.idRuangan = :idRuangan', { idRuangan: authUser.idRuangan })
+      .where('ir.idRuangan = :idRuangan', { idRuangan })
       .andWhere('mr.tanggal BETWEEN :startDate AND :endDate', { startDate, endDate })
       .getMany();
 
@@ -122,7 +129,7 @@ export async function downloadMutuRekapHandler(req: Request, res: Response, next
     const answerRows = await jawabanRepo
       .createQueryBuilder('j')
       .innerJoin('j.bioPasien', 'bp')
-      .where('bp.idRuangan = :idRuangan', { idRuangan: authUser.idRuangan })
+      .where('bp.idRuangan = :idRuangan', { idRuangan })
       .andWhere('j.tanggal BETWEEN :startDate AND :endDate', { startDate, endDate })
       .andWhere('j.idPilihan IS NOT NULL')
       .andWhere('j.hasilNilai IS NOT NULL')
@@ -131,29 +138,27 @@ export async function downloadMutuRekapHandler(req: Request, res: Response, next
     const skmRow: any = calculateSkmDailyStats(answerRows as any, maxScores, {
       bulan,
       tahun,
-      jumlahHari,
+      jumlahHari
     } as any);
 
     const normalizedSkmRow: MutuDashboardRow = {
       no: indikatorData.length + 1,
-      variabel: String((skmRow as any).variabel ?? (skmRow as any).judul ?? 'SKM'),
-      byTanggal: ((skmRow as any).byTanggal ?? {}) as Record<string, { pasien_sesuai: number; total_pasien: number }>,
-      jumlah_total: Number((skmRow as any).jumlah_total ?? 0),
-      jumlah_sesuai: Number((skmRow as any).jumlah_sesuai ?? 0),
-      persen: typeof (skmRow as any).persen === 'number' ? (skmRow as any).persen : null,
+      variabel: String(skmRow?.variabel ?? skmRow?.judul ?? 'SKM'),
+      byTanggal: (skmRow?.byTanggal ?? {}) as Record<string, { pasien_sesuai: number; total_pasien: number }>,
+      jumlah_total: Number(skmRow?.jumlah_total ?? 0),
+      jumlah_sesuai: Number(skmRow?.jumlah_sesuai ?? 0),
+      persen: typeof skmRow?.persen === 'number' ? skmRow.persen : null
     };
 
-    const ruangan = await ruanganRepo.findOneBy({ idRuangan: Number(authUser.idRuangan) });
-
     const workbook = buildRekapMutuRuanganWorkbook({
-      ruanganId: String(authUser.idRuangan),
-      namaRuangan: ruangan?.namaRuangan ?? String(authUser.idRuangan),
+      ruanganId: String(idRuangan),
+      namaRuangan: ruangan?.namaRuangan ?? String(idRuangan),
       bulan,
       tahun,
-      data: [...indikatorData, normalizedSkmRow],
+      data: [...indikatorData, normalizedSkmRow]
     });
 
-    const filename = `rekap-mutu-${String(ruangan?.namaRuangan ?? authUser.idRuangan).replace(/\s+/g, '_')}-${tahun}-${String(bulan).padStart(2, '0')}.xlsx`;
+    const filename = `Rekap_Mutu_${String(ruangan?.namaRuangan ?? idRuangan).replace(/\s+/g, '_')}_${bulan}-${tahun}.xlsx`;
     await sendWorkbook(workbook, filename, res);
   } catch (error) {
     next(error);

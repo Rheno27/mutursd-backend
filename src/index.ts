@@ -73,11 +73,24 @@ const deleteIndikatorHandler = loadHandler(
 );
 
 const getDashboardHandler = loadHandler('./endpoints/dashboard/get-dashboard', 'getDashboardHandler', 'GET /dashboard');
+const downloadRekapIndikatorHandler = loadHandler(
+  './endpoints/dashboard/download-rekap',
+  'downloadRekapIndikatorHandler',
+  'GET /superadmin/download-rekap-indikator'
+);
+
+const getRuanganListHandler = loadHandler('./endpoints/ruangan/get-list', 'getRuanganListHandler', 'GET /ruangan');
+const getKategoriListHandler = loadHandler('./endpoints/kategori/get-list', 'getKategoriListHandler', 'GET /kategori');
 
 const getRuanganDashboardHandler = loadHandler(
   './endpoints/ruangan/get-dashboard',
   'getRuanganDashboardHandler',
   'GET /ruangan/dashboard'
+);
+const downloadRuanganRekapHandler = loadHandler(
+  './endpoints/ruangan/download-rekap',
+  'downloadRuanganRekapHandler',
+  'GET /superadmin/ruangan/:id/download-rekap'
 );
 const getRuanganEditHandler = loadHandler('./endpoints/ruangan/get-edit', 'getRuanganEditHandler', 'GET /ruangan/:id/edit');
 const assignRuanganHandler = loadHandler('./endpoints/ruangan/assign', 'assignRuanganHandler', 'POST /ruangan/assign');
@@ -138,8 +151,13 @@ app.put('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.ADMIN), u
 app.delete('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.ADMIN), deleteIndikatorHandler);
 
 app.get('/dashboard', authMiddleware, getDashboardHandler);
+app.get('/superadmin/download-rekap-indikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRekapIndikatorHandler);
+
+app.get('/ruangan', getRuanganListHandler);
+app.get('/kategori', getKategoriListHandler);
 
 app.get('/ruangan/:id/dashboard', authMiddleware, roleMiddleware(ROLE.ADMIN), getRuanganDashboardHandler);
+app.get('/superadmin/ruangan/:id/download-rekap', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRuanganRekapHandler);
 app.get('/ruangan/:id/edit', authMiddleware, roleMiddleware(ROLE.ADMIN), getRuanganEditHandler);
 app.post('/ruangan/assign', authMiddleware, roleMiddleware(ROLE.ADMIN), assignRuanganHandler);
 app.patch('/ruangan/switch', authMiddleware, roleMiddleware(ROLE.ADMIN), switchRuanganHandler);

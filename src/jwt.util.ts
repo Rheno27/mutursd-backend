@@ -97,7 +97,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
       throw error;
     }
 
-    throw new UnauthorizedError('Invalid or expired access token', error instanceof Error ? { message: error.message } : undefined);
+    throw new UnauthorizedError('Invalid or expired access token');
   }
 }
 

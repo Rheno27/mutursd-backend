@@ -5,7 +5,6 @@ import { RuanganEntity } from '../../entities/ruangan.entity';
 import { IndikatorRuanganEntity } from '../../entities/indikator-ruangan.entity';
 import { MutuRuanganEntity } from '../../entities/mutu-ruangan.entity';
 import { calculateDailyStats } from '../../function/calculate-daily-stats';
-import { calculateSkm } from '../../function/calculate-skm';
 
 type RawRoom = {
   idRuangan?: string | number;
@@ -67,8 +66,16 @@ function getDateObject(value: unknown): Date | null {
     return null;
   }
 
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
 }
 
 function calculatePercentage(pasienSesuai: number, totalPasien: number): number | null {
@@ -141,19 +148,18 @@ function buildMonthlySeries(rows: RawMutuRuangan[], tahun: number): Array<number
 }
 
 function buildSkmFallback(rows: RawMutuRuangan[]): { pasienSesuai: number; totalPasien: number; persentase: number | null } {
-  const summary = rows.reduce(
-    (acc, row) => {
-      acc.pasienSesuai += toNumber(row.pasienSesuai);
-      acc.totalPasien += toNumber(row.totalPasien);
-      return acc;
-    },
-    { pasienSesuai: 0, totalPasien: 0 },
-  );
+  let pasienSesuai = 0;
+  let totalPasien = 0;
+
+  for (const row of rows) {
+    pasienSesuai += toNumber(row.pasienSesuai);
+    totalPasien += toNumber(row.totalPasien);
+  }
 
   return {
-    pasienSesuai: summary.pasienSesuai,
-    totalPasien: summary.totalPasien,
-    persentase: calculatePercentage(summary.pasienSesuai, summary.totalPasien),
+    pasienSesuai,
+    totalPasien,
+    persentase: calculatePercentage(pasienSesuai, totalPasien),
   };
 }
 
@@ -281,9 +287,9 @@ export async function getRuanganDashboardHandler(req: Request, res: Response, ne
         dailyStats = buildDailyFallback(indicatorMonthlyRows, jumlahHari);
       }
 
-      const pasienSesuai = indicatorMonthlyRows.reduce((acc, row) => acc + toNumber(row.pasienSesuai), 0);
-      const totalPasien = indicatorMonthlyRows.reduce((acc, row) => acc + toNumber(row.totalPasien), 0);
-      const persentase = calculatePercentage(pasienSesuai, totalPasien);
+      const pasienSesuai = indicatorMonthlyRows.reduce<number>((acc, row) => acc + toNumber(row.pasienSesuai), 0);
+      const totalPasien = indicatorMonthlyRows.reduce<number>((acc, row) => acc + toNumber(row.totalPasien), 0);
+      const persentase = calculatePercentage(Number(pasienSesuai), Number(totalPasien));
 
       return {
         idIndikatorRuangan,
@@ -304,34 +310,7 @@ export async function getRuanganDashboardHandler(req: Request, res: Response, ne
     const skmMonthlyRows = monthlyRows;
     const skmAnnualRows = annualRows;
 
-    let skmSummary: { pasienSesuai: number; totalPasien: number; persentase: number | null } = buildSkmFallback(skmMonthlyRows);
-    try {
-      const helperResult = (calculateSkm as unknown as (...args: unknown[]) => unknown)(skmMonthlyRows, {
-        bulan,
-        tahun,
-        jumlahHari,
-        ruangan: {
-          idRuangan: normalizeString(ruangan.idRuangan),
-          namaRuangan: normalizeString(ruangan.namaRuangan),
-        },
-      });
-      if (helperResult && typeof helperResult === 'object') {
-        const helperObject = helperResult as Record<string, unknown>;
-        const pasienSesuai = toNumber(helperObject.pasienSesuai ?? helperObject.totalSesuai ?? helperObject.jumlahPasienSesuai);
-        const totalPasien = toNumber(helperObject.totalPasien ?? helperObject.jumlahPasien);
-        const persentase = helperObject.persentase !== undefined
-          ? Number(helperObject.persentase)
-          : calculatePercentage(pasienSesuai, totalPasien);
-
-        skmSummary = {
-          pasienSesuai,
-          totalPasien,
-          persentase,
-        };
-      }
-    } catch {
-      skmSummary = buildSkmFallback(skmMonthlyRows);
-    }
+    const skmSummary = buildSkmFallback(skmMonthlyRows);
 
     const skmAnnualSeries = buildMonthlySeries(skmAnnualRows, tahun);
 

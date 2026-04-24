@@ -23,6 +23,7 @@ export type Role = (typeof ROLE)[keyof typeof ROLE];
 export const PRIVILEGED_ROLES: readonly Role[] = [ROLE.SUPERADMIN, ROLE.ADMIN] as const;
 
 export const DEFAULT_ROLE: Role = ROLE.RUANGAN;
+export const SUPERADMIN_ROOM_ID = 'SP00';
 
 export const PAGINATION_DEFAULTS = {
   page: DEFAULT_PAGE,
