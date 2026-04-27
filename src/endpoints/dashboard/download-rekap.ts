@@ -186,7 +186,7 @@ export async function downloadRekapIndikatorHandler(
     );
 
     const activeAssignments = await indikatorRuanganRepo.find({
-      where: { active: true } as any,
+      where: { active: 1 } as any,
       relations: {
         ruangan: true,
         indikatorMutu: {

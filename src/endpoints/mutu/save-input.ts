@@ -179,7 +179,7 @@ export async function saveMutuInputHandler(
       .where("ir.id_ruangan = :idRuangan", {
         idRuangan: String(authUser.idRuangan),
       })
-      .andWhere("ir.active = true")
+      .andWhere("ir.active = 1")
       .andWhere("ir.id_indikator IN (:...requestedIndicatorIds)", {
         requestedIndicatorIds,
       })

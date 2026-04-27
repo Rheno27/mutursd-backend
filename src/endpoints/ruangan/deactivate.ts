@@ -29,9 +29,9 @@ export async function deactivateRuanganHandler(
         throw new NotFoundError("Indikator ruangan tidak ditemukan");
       }
 
-      // PostgreSQL: boolean false instead of 0
+      // PostgreSQL smallint flag: use 0 for inactive rows
       await manager.query(
-        "UPDATE indikator_ruangan SET active = false WHERE id_indikator_ruangan = $1",
+        "UPDATE indikator_ruangan SET active = 0 WHERE id_indikator_ruangan = $1",
         [idIndikatorRuangan],
       );
     });

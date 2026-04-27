@@ -105,7 +105,7 @@ export async function getRuanganEditHandler(req: Request, res: Response, next: N
         'ir.active AS active',
         'im.id_kategori AS idKategori',
         'im.variabel AS variabel',
-        'im.indikator AS indikator',
+        'im.variabel AS indikator',
         'k.kategori AS kategori',
       ])
       .where('ir.id_ruangan = :idRuangan', { idRuangan })
@@ -121,7 +121,7 @@ export async function getRuanganEditHandler(req: Request, res: Response, next: N
         'im.id_indikator AS idIndikator',
         'im.id_kategori AS idKategori',
         'im.variabel AS variabel',
-        'im.indikator AS indikator',
+        'im.variabel AS indikator',
         'k.kategori AS kategori',
       ])
       .orderBy('im.variabel', 'ASC')

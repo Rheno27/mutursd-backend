@@ -153,8 +153,8 @@ app.delete('/indikator/:idIndikator', authMiddleware, roleMiddleware(ROLE.SUPERA
 app.get('/dashboard', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getDashboardHandler);
 app.get('/superadmin/download-rekap-indikator', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRekapIndikatorHandler);
 
-app.get('/ruangan', getRuanganListHandler);
-app.get('/kategori', getKategoriListHandler);
+app.get('/ruangan', authMiddleware, roleMiddleware(ROLE.ADMIN), getRuanganListHandler);
+app.get('/kategori', authMiddleware, roleMiddleware(ROLE.ADMIN), getKategoriListHandler);
 
 app.get('/ruangan/:id/dashboard', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), getRuanganDashboardHandler);
 app.get('/superadmin/ruangan/:id/download-rekap', authMiddleware, roleMiddleware(ROLE.SUPERADMIN), downloadRuanganRekapHandler);

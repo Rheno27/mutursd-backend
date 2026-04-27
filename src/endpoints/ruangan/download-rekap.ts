@@ -104,7 +104,7 @@ export async function downloadRuanganRekapHandler(
       .innerJoinAndSelect("ir.indikatorMutu", "im")
       .leftJoinAndSelect("im.kategori", "k")
       .where("ir.idRuangan = :idRuangan", { idRuangan })
-      .andWhere("ir.active = :active", { active: true })
+      .andWhere("ir.active = :active", { active: 1 })
       .orderBy("im.variabel", "ASC")
       .addOrderBy("ir.idIndikatorRuangan", "ASC")
       .getMany();

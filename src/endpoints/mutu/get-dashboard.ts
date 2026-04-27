@@ -99,7 +99,7 @@ export async function getMutuDashboardHandler(
         "im.standar AS standar",
       ])
       .where("ir.id_ruangan = :idRuangan", { idRuangan })
-      .andWhere("ir.active = true")
+      .andWhere("ir.active = 1")
       .orderBy("im.id_kategori", "ASC")
       .addOrderBy("im.variabel", "ASC")
       .getRawMany()) as RawIndicatorRoomRow[];

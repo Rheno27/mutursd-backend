@@ -14,8 +14,8 @@ export async function getKategoriListHandler(req: Request, res: Response, next: 
     const rawRows = (await kategoriRepo
       .createQueryBuilder('kategori')
       .select([
-        'kategori.idKategori AS idKategori',
-        'kategori.kategori AS kategori'
+        'kategori.idKategori AS "idKategori"',
+        'kategori.kategori AS "kategori"'
       ])
       .orderBy('kategori.kategori', 'ASC')
       .getRawMany()) as RawKategoriRow[];

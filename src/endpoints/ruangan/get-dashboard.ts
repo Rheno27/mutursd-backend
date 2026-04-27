@@ -30,7 +30,7 @@ type RawIndicatorRoom = {
 };
 
 type RawMutuRuangan = {
-  idMutuRuangan?: string | number;
+  idMutu?: string | number;
   idRuangan?: string | number;
   idIndikatorRuangan?: string | number;
   tanggal?: string | Date | null;
@@ -228,25 +228,30 @@ export async function getRuanganDashboardHandler(
         "ir.active AS active",
         'im.id_kategori AS "idKategori"',
         "im.variabel AS variabel",
-        "im.indikator AS indikator",
+        "im.variabel AS indikator",
         "k.kategori AS kategori",
       ])
       .where("ir.id_ruangan = :idRuangan", { idRuangan })
-      // PostgreSQL: use true for boolean
-      .andWhere("ir.active = true")
+      // PostgreSQL smallint flag: use 1 for active rows
+      .andWhere("ir.active = 1")
       .getRawMany()) as RawIndicatorRoom[];
 
     const monthlyRows = (await mutuRuanganRepo
       .createQueryBuilder("mr")
+      .innerJoin(
+        "indikator_ruangan",
+        "ir",
+        "ir.id_indikator_ruangan = mr.id_indikator_ruangan",
+      )
       .select([
-        'mr.id_mutu_ruangan AS "idMutuRuangan"',
-        'mr.id_ruangan AS "idRuangan"',
+        'mr.id_mutu AS "idMutu"',
+        'ir.id_ruangan AS "idRuangan"',
         'mr.id_indikator_ruangan AS "idIndikatorRuangan"',
         "mr.tanggal AS tanggal",
         'mr.pasien_sesuai AS "pasienSesuai"',
         'mr.total_pasien AS "totalPasien"',
       ])
-      .where("mr.id_ruangan = :idRuangan", { idRuangan })
+      .where("ir.id_ruangan = :idRuangan", { idRuangan })
       // PostgreSQL: EXTRACT instead of MONTH()/YEAR()
       .andWhere("EXTRACT(MONTH FROM mr.tanggal) = :bulan", { bulan })
       .andWhere("EXTRACT(YEAR FROM mr.tanggal) = :tahun", { tahun })
@@ -255,15 +260,20 @@ export async function getRuanganDashboardHandler(
 
     const annualRows = (await mutuRuanganRepo
       .createQueryBuilder("mr")
+      .innerJoin(
+        "indikator_ruangan",
+        "ir",
+        "ir.id_indikator_ruangan = mr.id_indikator_ruangan",
+      )
       .select([
-        'mr.id_mutu_ruangan AS "idMutuRuangan"',
-        'mr.id_ruangan AS "idRuangan"',
+        'mr.id_mutu AS "idMutu"',
+        'ir.id_ruangan AS "idRuangan"',
         'mr.id_indikator_ruangan AS "idIndikatorRuangan"',
         "mr.tanggal AS tanggal",
         'mr.pasien_sesuai AS "pasienSesuai"',
         'mr.total_pasien AS "totalPasien"',
       ])
-      .where("mr.id_ruangan = :idRuangan", { idRuangan })
+      .where("ir.id_ruangan = :idRuangan", { idRuangan })
       .andWhere("EXTRACT(YEAR FROM mr.tanggal) = :tahun", { tahun })
       .orderBy("mr.tanggal", "ASC")
       .getRawMany()) as RawMutuRuangan[];

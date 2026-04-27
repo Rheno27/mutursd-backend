@@ -52,7 +52,7 @@ export async function switchRuanganHandler(
 
       // PostgreSQL: boolean true for active check
       const duplicateActiveRows = await manager.query(
-        'SELECT id_indikator_ruangan AS "idIndikatorRuangan" FROM indikator_ruangan WHERE id_ruangan = $1 AND id_indikator = $2 AND active = true AND id_indikator_ruangan <> $3 LIMIT 1',
+        'SELECT id_indikator_ruangan AS "idIndikatorRuangan" FROM indikator_ruangan WHERE id_ruangan = $1 AND id_indikator = $2 AND active = 1 AND id_indikator_ruangan <> $3 LIMIT 1',
         [idRuangan, idIndikatorBaru, idIndikatorRuanganLama],
       );
 
@@ -61,23 +61,23 @@ export async function switchRuanganHandler(
       }
 
       await manager.query(
-        "UPDATE indikator_ruangan SET active = false WHERE id_indikator_ruangan = $1",
+        "UPDATE indikator_ruangan SET active = 0 WHERE id_indikator_ruangan = $1",
         [idIndikatorRuanganLama],
       );
 
       const inactiveNewRows = await manager.query(
-        'SELECT id_indikator_ruangan AS "idIndikatorRuangan", active FROM indikator_ruangan WHERE id_ruangan = $1 AND id_indikator = $2 AND active = false ORDER BY id_indikator_ruangan ASC LIMIT 1',
+        'SELECT id_indikator_ruangan AS "idIndikatorRuangan", active FROM indikator_ruangan WHERE id_ruangan = $1 AND id_indikator = $2 AND active = 0 ORDER BY id_indikator_ruangan ASC LIMIT 1',
         [idRuangan, idIndikatorBaru],
       );
 
       if (inactiveNewRows.length > 0) {
         await manager.query(
-          "UPDATE indikator_ruangan SET active = true WHERE id_indikator_ruangan = $1",
+          "UPDATE indikator_ruangan SET active = 1 WHERE id_indikator_ruangan = $1",
           [inactiveNewRows[0].idIndikatorRuangan],
         );
       } else {
         await manager.query(
-          "INSERT INTO indikator_ruangan (id_ruangan, id_indikator, active) VALUES ($1, $2, true)",
+          "INSERT INTO indikator_ruangan (id_ruangan, id_indikator, active) VALUES ($1, $2, 1)",
           [idRuangan, idIndikatorBaru],
         );
       }
